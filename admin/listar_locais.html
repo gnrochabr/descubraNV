@@ -51,7 +51,7 @@
                         <template x-for="item in regioesFiltradas()" :key="'regiao-' + item.id">
                             <tr class="border-b last:border-b-0 hover:bg-gray-50">
                                 <td class="px-4 py-3">
-                                    <img :src="'../' + item.cover" class="w-16 h-12 object-cover rounded-lg bg-gray-200">
+                                    <img :src="'/' + item.cover" class="w-16 h-12 object-cover rounded-lg bg-gray-200">
                                 </td>
                                 <td class="px-4 py-3">
                                     <p class="font-black text-[#0f5132]" x-text="item.title"></p>
@@ -97,7 +97,7 @@
                         <template x-for="item in filtrados()" :key="item.regiao + '-' + item.id">
                             <tr class="border-b last:border-b-0 hover:bg-gray-50">
                                 <td class="px-4 py-3">
-                                    <img :src="'../' + item.hero" class="w-16 h-12 object-cover rounded-lg bg-gray-200">
+                                    <img :src="'/' + item.hero" class="w-16 h-12 object-cover rounded-lg bg-gray-200">
                                 </td>
                                 <td class="px-4 py-3">
                                     <p class="font-black text-[#0f5132]" x-text="item.title"></p>
