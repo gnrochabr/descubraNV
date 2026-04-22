@@ -9,14 +9,10 @@
      */
     const isLogged = sessionStorage.getItem('admin_logged');
 
-    if (!isLogged && !window.location.pathname.includes('login.html')) {
-        const redirect = window.location.pathname.includes('/forms/')
-            ? '../login.html'
-            : 'login.html';
-
-        window.location.href = redirect;
-        return;
-    }
+  if (!isLogged && !window.location.pathname.includes('login.html')) {
+    window.location.href = '/login.html';
+    return;
+}
 
     /**
      * ============================
