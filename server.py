@@ -1,85 +1,112 @@
 import os
 import threading
-import io
 import json
+import re
+import io
 import zipfile
-from flask import Flask, request, jsonify, send_file, send_from_directory
+
+from flask import Flask, jsonify, request, send_from_directory, send_file
 from werkzeug.utils import secure_filename
 
 from manager import SiteManager
 
-# =========================
-# 🔧 CONFIG
-# =========================
-
-app = Flask(__name__)
+app = Flask(__name__, static_folder=".")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "pendentes")
+CONTROLLER_PATH = os.path.join(BASE_DIR, "dados", "controller.js")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 processando = False
 lock = threading.Lock()
 
-# =========================
-# 🌐 CORS
-# =========================
-
+# ==============================
+# 🔓 CORS
+# ==============================
 @app.after_request
-def cors(response):
+def add_cors(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
 
-# =========================
-# 🌍 SITE
-# =========================
 
-@app.route("/")
-def index():
-    return send_from_directory(".", "index.html")
+# ==============================
+# 📦 UTIL
+# ==============================
+def parse_controller_estrutura():
+    if not os.path.exists(CONTROLLER_PATH):
+        return {}
 
-# =========================
-# 🔐 ADMIN
-# =========================
+    with open(CONTROLLER_PATH, "r", encoding="utf-8") as f:
+        content = f.read()
 
-@app.route("/login.html")
-def login():
-    return send_from_directory(".", "login.html")
+    try:
+        start = content.find("const ESTRUTURA =")
+        if start == -1:
+            return {}
 
-@app.route("/dashboard.html")
+        start = content.find("{", start)
+        end = content.rfind("}")
+
+        estrutura_str = content[start:end+1]
+        return json.loads(estrutura_str)
+
+    except Exception as e:
+        print("Erro ao ler controller:", e)
+        return {}
+
+
+def list_locais():
+    estrutura = parse_controller_estrutura()
+    locais = []
+
+    for regiao, circuito in estrutura.items():
+        for ponto in circuito.get("pontos", []):
+            if ponto.get("id"):
+                locais.append({
+                    "id": ponto["id"],
+                    "regiao": regiao
+                })
+
+    return locais
+
+
+def list_regioes():
+    estrutura = parse_controller_estrutura()
+    return list(estrutura.keys())
+
+
+# ==============================
+# 📊 API
+# ==============================
+
+@app.route("/api/dashboard")
 def dashboard():
-    return send_from_directory("admin", "dashboard.html")
+    locais = list_locais()
+    regioes = list_regioes()
 
-# =========================
-# 📁 ESTÁTICOS
-# =========================
+    return jsonify({
+        "total_locais": len(locais),
+        "total_regioes": len(regioes),
+        "status": "processando" if processando else "ok"
+    })
 
-@app.route("/imagens/<path:path>")
-def imagens(path):
-    return send_from_directory("imagens", path)
 
-@app.route("/dados/<path:path>")
-def dados(path):
-    return send_from_directory("dados", path)
+@app.route("/api/locais")
+def api_locais():
+    return jsonify({"locais": list_locais()})
 
-@app.route("/admin/<path:path>")
-def admin_files(path):
-    return send_from_directory("admin", path)
 
-@app.route("/layout/<path:path>")
-def layout(path):
-    return send_from_directory("layout", path)
+@app.route("/api/regioes")
+def api_regioes():
+    return jsonify({"regioes": list_regioes()})
 
-@app.route("/<path:path>")
-def root_files(path):
-    return send_from_directory(".", path)
 
-# =========================
-# 📤 UPLOAD + PROCESSAMENTO
-# =========================
+# ==============================
+# 📤 UPLOAD
+# ==============================
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -89,41 +116,32 @@ def upload():
         return jsonify({"error": "Arquivo não enviado"}), 400
 
     file = request.files["file"]
+    filename = secure_filename(file.filename)
 
-    if file.filename == "":
-        return jsonify({"error": "Nome inválido"}), 400
+    path = os.path.join(UPLOAD_DIR, filename)
+    file.save(path)
 
-    try:
-        filename = secure_filename(file.filename)
-        path = os.path.join(UPLOAD_DIR, filename)
-        file.save(path)
+    def executar():
+        global processando
+        with lock:
+            processando = True
+            try:
+                SiteManager()
+            finally:
+                processando = False
 
-        def executar():
-            global processando
-            with lock:
-                processando = True
-                try:
-                    SiteManager()
-                finally:
-                    processando = False
+    threading.Thread(target=executar).start()
 
-        threading.Thread(target=executar).start()
+    return jsonify({"status": "ok"})
 
-        return jsonify({"status": "ok", "message": "Processamento iniciado"})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# =========================
+# ==============================
 # 🔁 REBUILD
-# =========================
+# ==============================
 
 @app.route("/rebuild", methods=["POST"])
 def rebuild():
     global processando
-
-    if processando:
-        return jsonify({"status": "busy"})
 
     def executar():
         global processando
@@ -138,59 +156,74 @@ def rebuild():
 
     return jsonify({"status": "ok", "message": "Rebuild iniciado"})
 
-# =========================
-# 📊 STATUS
-# =========================
 
-@app.route("/status")
-def status():
-    pendentes = len([
-        f for f in os.listdir(UPLOAD_DIR)
-        if f.endswith(".zip") or f.endswith(".json")
-    ])
-
-    return jsonify({
-        "processando": processando,
-        "pendentes": pendentes
-    })
-
-# =========================
-# 📦 DOWNLOAD ZIP
-# =========================
+# ==============================
+# 📥 DOWNLOAD ZIP
+# ==============================
 
 @app.route("/download_zip/<regiao>/<local_id>")
 def download_zip(regiao, local_id):
-    try:
-        base_path = os.path.join(BASE_DIR, "dados", "circuitos", regiao, local_id)
-        image_dir = os.path.join(base_path, "images")
+    path = os.path.join(BASE_DIR, "dados", "circuitos", regiao, local_id)
 
-        if not os.path.exists(base_path):
-            return jsonify({"error": "Local não encontrado"}), 404
+    if not os.path.exists(path):
+        return jsonify({"error": "Local não encontrado"}), 404
 
-        memory = io.BytesIO()
+    memory = io.BytesIO()
 
-        with zipfile.ZipFile(memory, "w", zipfile.ZIP_DEFLATED) as zf:
-            for root, _, files in os.walk(base_path):
-                for f in files:
-                    full = os.path.join(root, f)
-                    rel = os.path.relpath(full, base_path)
-                    zf.write(full, rel)
+    with zipfile.ZipFile(memory, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(path):
+            for f in files:
+                full = os.path.join(root, f)
+                arc = os.path.relpath(full, path)
+                zf.write(full, arc)
 
-        memory.seek(0)
+    memory.seek(0)
 
-        return send_file(
-            memory,
-            mimetype="application/zip",
-            as_attachment=True,
-            download_name=f"{local_id}.zip"
-        )
+    return send_file(
+        memory,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"{local_id}.zip"
+    )
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
-# =========================
-# 🚀 START (RENDER)
-# =========================
+# ==============================
+# 📊 STATUS
+# ==============================
+
+@app.route("/status")
+def status():
+    return jsonify({
+        "processando": processando,
+        "pendentes": len(os.listdir(UPLOAD_DIR))
+    })
+
+
+# ==============================
+# 🌐 FRONTEND
+# ==============================
+
+# Página inicial
+@app.route("/")
+def index():
+    return send_from_directory(".", "index.html")
+
+
+# Admin
+@app.route("/admin/<path:path>")
+def admin(path):
+    return send_from_directory("admin", path)
+
+
+# Arquivos estáticos (imagens, dados, js...)
+@app.route("/<path:path>")
+def static_files(path):
+    return send_from_directory(".", path)
+
+
+# ==============================
+# 🚀 START
+# ==============================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
