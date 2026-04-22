@@ -183,13 +183,13 @@ function app() {
 
                 this.locais = (locaisData.locais || []).map(l => ({
                     id: l.id || '',
-                    nome: l.nome || l.id || '',
+                    nome: l.title || l.nome || l.id || '',
                     regiao: l.regiao || 'sem_regiao'
                 }));
 
                 this.regioes = (regioesData.regioes || []).map(r => ({
                     id: r.id || '',
-                    nome: r.nome || r.id || ''
+                    nome: r.title|| r.nome || r.id || ''
                 }));
 
             } catch (e) {
