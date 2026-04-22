@@ -146,14 +146,32 @@ function editApp() {
         es: { title: '', subtitle: '', desc: '' },
 
         async init() {
-            const params = new URLSearchParams(window.location.search);
-            const regiao = params.get('regiao');
-            const local = params.get('local');
-            const res = await fetch(apiUrl('/api/locais'));
-            const data = await res.json();
-            this.locais = data.locais || [];
-            if (regiao && local) await this.carregarLocal(regiao, local);
-        },
+    const params = new URLSearchParams(window.location.search);
+
+    const regiao = params.get('regiao');
+    const local = params.get('id') || params.get('local'); // aceita ambos
+
+    try {
+        const res = await fetch(apiUrl('/api/locais'));
+        const data = await res.json();
+        this.locais = data.locais || [];
+    } catch (e) {
+        console.warn('Erro ao carregar lista:', e);
+    }
+
+    // 🔥 AUTO LOAD DIRETO PELA URL
+    if (regiao && local) {
+        await this.carregarLocal(regiao, local);
+
+        // pré-seleciona no select (sem mexer no layout)
+        this.$nextTick(() => {
+            const select = document.querySelector('select');
+            if (select) {
+                select.value = `${regiao}::${local}`;
+            }
+        });
+    }
+},
 
         upload(e) {
             this.fotos = Array.from(e.target.files).map(f => ({
