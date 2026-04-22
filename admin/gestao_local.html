@@ -318,7 +318,7 @@ function adminApp() {
 
     /* ── init ─────────────────────────────── */
     init() {
-      ['../dados/controller.js', './dados/controller.js', 'dados/controller.js'].forEach(src => {
+      ['/dados/controller.js', './dados/controller.js', 'dados/controller.js'].forEach(src => {
         const s = document.createElement('script');
         s.src = src;
         s.onload = () => {
