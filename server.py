@@ -457,4 +457,14 @@ def limpar():
 
 # 🚀 Start
 if __name__ == "__main__":
-    app.run(debug=True)
+    import os
+
+    try:
+        port = int(os.environ.get("PORT", 10000))
+    except Exception:
+        port = 10000
+
+    try:
+        app.run(host="0.0.0.0", port=port)
+    except Exception as e:
+        print("Erro ao subir o Flask:", e)
