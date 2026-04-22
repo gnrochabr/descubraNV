@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-BR" x-data="editApp()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="auth.js"></script>
+    <style>
+        .input-premium { width: 100%; padding: 1rem; background: #f9fafb; border-radius: 1rem; border: none; outline: none; font-weight: 700; color: #0f5132; }
+        .input-premium:focus { box-shadow: 0 0 0 2px #ffc107; }
+        .label-premium { display: block; font-size: 9px; font-weight: 900; text-transform: uppercase; color: #9ca3af; margin-bottom: .5rem; margin-left: 1rem; font-style: italic; }
+    </style>
+</head>
+<body class="bg-gray-100 p-6 md:p-12">
+    <div class="max-w-5xl mx-auto mb-4 flex justify-end">
+        <a href="./dashboard.html" class="text-xs font-black uppercase text-gray-500 hover:text-[#0f5132]">← Voltar</a>
+    </div>
+
+    <div class="max-w-5xl mx-auto bg-white rounded-[3rem] shadow-2xl overflow-hidden">
+        <header class="bg-[#0f5132] p-10 text-white">
+            <h2 class="text-2xl font-black uppercase italic">Editar Local</h2>
+            <p class="text-xs opacity-80 mt-2">Mesma estrutura do cadastro, com dados carregados para atualização.</p>
+        </header>
+
+        <div class="p-10 space-y-8">
+            <section class="space-y-4">
+                <label class="label-premium">Selecionar Local</label>
+                <select @change="carregarLocalRef($event.target.value)" class="input-premium">
+                    <option value="">Escolha um local...</option>
+                    <template x-for="item in locais" :key="item.regiao + '-' + item.id">
+                        <option :value="item.regiao + '::' + item.id" x-text="item.title + ' (' + item.regiao_nome + ')'"></option>
+                    </template>
+                </select>
+            </section>
+
+            <template x-if="carregado">
+                <div class="space-y-8">
+                    <section class="grid md:grid-cols-2 gap-8 border-t pt-8">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="label-premium">Região</label>
+                                <input x-model="id_regiao" class="input-premium" disabled>
+                            </div>
+                            <div>
+                                <label class="label-premium">ID do Local</label>
+                                <input x-model="id_local" class="input-premium" disabled>
+                            </div>
+                            <div>
+                                <label class="label-premium">Google Maps (link)</label>
+                                <input x-model="map_link" class="input-premium" placeholder="https://...">
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 p-6 rounded-3xl space-y-4">
+                            <label class="label-premium">Mídia Atual</label>
+                            <img x-show="hero_atual" :src="'../' + hero_atual" class="w-full h-40 object-cover rounded-xl bg-gray-200">
+                            <p class="text-xs font-bold text-gray-500" x-text="'Fotos atuais: ' + galeria_atual.length"></p>
+                            <div class="grid grid-cols-4 gap-2">
+                                <template x-for="(img, i) in galeria_atual" :key="'old-' + i">
+                                    <div class="relative">
+                                        <img :src="'../' + img" class="h-16 w-full object-cover rounded-lg bg-gray-200">
+                                        <button @click="removerImagemAtual(i)"
+                                            class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-black">x</button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="grid md:grid-cols-3 gap-8 border-t pt-8">
+                        <div class="space-y-4">
+                            <label class="label-premium">Português</label>
+                            <input x-model="pt.title" placeholder="Título" class="input-premium">
+                            <input x-model="pt.subtitle" placeholder="Subtítulo" class="input-premium">
+                            <textarea x-model="pt.desc" placeholder="Descrição" class="input-premium h-24"></textarea>
+                        </div>
+                        <div class="space-y-4">
+                            <label class="label-premium">English</label>
+                            <input x-model="en.title" placeholder="Title" class="input-premium">
+                            <input x-model="en.subtitle" placeholder="Subtitle" class="input-premium">
+                            <textarea x-model="en.desc" placeholder="Description" class="input-premium h-24"></textarea>
+                        </div>
+                        <div class="space-y-4">
+                            <label class="label-premium">Español</label>
+                            <input x-model="es.title" placeholder="Título" class="input-premium">
+                            <input x-model="es.subtitle" placeholder="Subtítulo" class="input-premium">
+                            <textarea x-model="es.desc" placeholder="Descripción" class="input-premium h-24"></textarea>
+                        </div>
+                    </section>
+
+                    <section class="border-t pt-8 space-y-4">
+                        <label class="label-premium">Adicionar novas fotos (opcional)</label>
+                        <input type="file" multiple @change="upload" class="input-premium text-xs">
+                        <p class="text-xs text-gray-500 font-semibold">Se não enviar novas fotos, a galeria atual será mantida.</p>
+                        <div class="grid grid-cols-4 gap-2">
+                            <template x-for="(f, i) in fotos" :key="'new-' + i">
+                                <img :src="f.url" @click="cover = i"
+                                    :class="cover === i ? 'ring-4 ring-[#ffc107]' : 'opacity-50'"
+                                    class="h-20 w-full object-cover rounded-xl cursor-pointer">
+                            </template>
+                        </div>
+                    </section>
+
+                    <section class="border-t pt-8">
+                        <label class="label-premium">Experiência 360º</label>
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" x-model="has360" class="w-5 h-5 accent-[#0f5132] cursor-pointer">
+                            <span class="text-xs font-bold uppercase text-gray-600">Possui visualização 360º</span>
+                        </div>
+                        <input x-show="has360" x-model="ra_link" class="input-premium text-xs mt-3" placeholder="https://novavenecia360.com.br/">
+                    </section>
+
+                    <div class="grid md:grid-cols-2 gap-3">
+                        <button @click="salvar()" :disabled="loading"
+                            class="w-full bg-[#0f5132] text-white py-6 rounded-3xl font-black uppercase shadow-xl">
+                            <span x-text="loading ? 'Enviando...' : '💾 Salvar Alterações'"></span>
+                        </button>
+                        <button @click="baixarZipAtual()" :disabled="loading"
+                            class="w-full bg-[#ffc107] text-[#0f5132] py-6 rounded-3xl font-black uppercase shadow-xl">
+                            📦 Baixar ZIP Atual
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+<script>
+function editApp() {
+    return {
+        locais: [],
+        carregado: false,
+        loading: false,
+        id_regiao: '',
+        id_local: '',
+        map_link: '',
+        hero_atual: '',
+        galeria_atual: [],
+        imagens_removidas: [],
+        fotos: [],
+        cover: 0,
+        has360: false,
+        ra_link: '',
+        pt: { title: '', subtitle: '', desc: '' },
+        en: { title: '', subtitle: '', desc: '' },
+        es: { title: '', subtitle: '', desc: '' },
+
+        async init() {
+            const params = new URLSearchParams(window.location.search);
+            const regiao = params.get('regiao');
+            const local = params.get('local');
+            const res = await fetch(apiUrl('/api/locais'));
+            const data = await res.json();
+            this.locais = data.locais || [];
+            if (regiao && local) await this.carregarLocal(regiao, local);
+        },
+
+        upload(e) {
+            this.fotos = Array.from(e.target.files).map(f => ({
+                file: f,
+                name: f.name,
+                url: URL.createObjectURL(f)
+            }));
+            this.cover = 0;
+        },
+        removerImagemAtual(index) {
+            const imgPath = this.galeria_atual[index];
+            const name = (imgPath || '').split('/').pop();
+            if (name) this.imagens_removidas.push(name);
+            this.galeria_atual.splice(index, 1);
+        },
+
+        async carregarLocalRef(value) {
+            if (!value) return;
+            const [regiao, local] = value.split('::');
+            await this.carregarLocal(regiao, local);
+        },
+
+        async carregarLocal(regiao, localId) {
+            const res = await fetch(apiUrl(`/api/local/${regiao}/${localId}`));
+            const payload = await res.json();
+            if (!res.ok || !payload.data) {
+                alert(payload.error || 'Falha ao carregar dados do local.');
+                this.carregado = false;
+                return;
+            }
+            const l = payload.data;
+            this.id_regiao = regiao;
+            this.id_local = localId;
+            this.map_link = l.location?.maps || '';
+            this.hero_atual = l.hero || '';
+            this.galeria_atual = l.gallery || [];
+            this.has360 = !!l.RAvisionScreen;
+            this.ra_link = l.RAvisionlink || '';
+            this.pt = {
+                title: l.texts?.pt?.title || '',
+                subtitle: l.texts?.pt?.subtitle || '',
+                desc: l.texts?.pt?.description || ''
+            };
+            this.en = {
+                title: l.texts?.en?.title || '',
+                subtitle: l.texts?.en?.subtitle || '',
+                desc: l.texts?.en?.description || ''
+            };
+            this.es = {
+                title: l.texts?.es?.title || '',
+                subtitle: l.texts?.es?.subtitle || '',
+                desc: l.texts?.es?.description || ''
+            };
+            this.fotos = [];
+            this.cover = 0;
+            this.imagens_removidas = [];
+            this.carregado = true;
+        },
+
+        async salvar() {
+            this.loading = true;
+            try {
+                const zip = new JSZip();
+                const payload = {
+                    modo: 'update',
+                    tipo: 'local',
+                    regiao: this.id_regiao,
+                    local: this.id_local,
+                    cover_file: this.fotos[this.cover]?.name || '',
+                    dados: {
+                        location: { maps: this.map_link },
+                        texts: {
+                            pt: { title: this.pt.title, subtitle: this.pt.subtitle, description: this.pt.desc },
+                            en: { title: this.en.title, subtitle: this.en.subtitle, description: this.en.desc },
+                            es: { title: this.es.title, subtitle: this.es.subtitle, description: this.es.desc }
+                        },
+                        gallery: this.fotos.map(f => f.name),
+                        gallery_remove: this.imagens_removidas,
+                        RAvisionScreen: this.has360,
+                        RAvisionlink: this.has360 ? this.ra_link : ''
+                    }
+                };
+                zip.file('config.json', JSON.stringify(payload));
+                this.fotos.forEach(f => zip.file(f.name, f.file));
+                const blob = await zip.generateAsync({ type: 'blob' });
+                const formData = new FormData();
+                formData.append('file', blob, `update_${this.id_local}.zip`);
+                const res = await fetch(apiUrl('/upload'), { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.status !== 'ok') throw new Error(data.error || 'Falha ao atualizar.');
+                alert('✅ Alterações enviadas para processamento!');
+            } catch (e) {
+                alert(e.message || 'Falha ao atualizar.');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async baixarZipAtual() {
+            const res = await fetch(apiUrl(`/download_zip/${this.id_regiao}/${this.id_local}`));
+            if (!res.ok) {
+                alert('Falha ao baixar ZIP.');
+                return;
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `pacote_${this.id_local}.zip`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+    }
+}
+</script>
+</body>
+</html>

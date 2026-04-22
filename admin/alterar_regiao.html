@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR" x-data="editRegiaoApp()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="auth.js"></script>
+    <style>
+        .input-premium { width: 100%; padding: 1rem; background: #f9fafb; border-radius: 1rem; border: none; outline: none; font-weight: 700; color: #0f5132; }
+        .input-premium:focus { box-shadow: 0 0 0 2px #ffc107; }
+        .label-premium { display: block; font-size: 9px; font-weight: 900; text-transform: uppercase; color: #9ca3af; margin-bottom: .5rem; margin-left: 1rem; font-style: italic; }
+    </style>
+</head>
+<body class="bg-gray-100 p-6 md:p-12">
+    <div class="max-w-5xl mx-auto mb-4 flex justify-end">
+        <a href="./dashboard.html" class="text-xs font-black uppercase text-gray-500 hover:text-[#0f5132]">← Voltar</a>
+    </div>
+
+    <div class="max-w-5xl mx-auto bg-white rounded-[3rem] shadow-2xl overflow-hidden">
+        <header class="bg-[#0f5132] p-10 text-white">
+            <h2 class="text-2xl font-black uppercase italic">Editar Região</h2>
+        </header>
+
+        <div class="p-10 space-y-8">
+            <section class="space-y-4">
+                <label class="label-premium">Selecionar Região</label>
+                <select @change="carregarRegiaoRef($event.target.value)" class="input-premium">
+                    <option value="">Escolha uma região...</option>
+                    <template x-for="item in regioes" :key="item.id">
+                        <option :value="item.id" x-text="item.title + ' (' + item.id + ')'"></option>
+                    </template>
+                </select>
+            </section>
+
+            <template x-if="carregado">
+                <div class="space-y-8">
+                    <section class="grid md:grid-cols-2 gap-8 border-t pt-8">
+                        <div class="space-y-4">
+                            <label class="label-premium">ID da Região</label>
+                            <input x-model="id_regiao" class="input-premium" disabled>
+                        </div>
+                        <div class="space-y-4">
+                            <label class="label-premium">Título (PT)</label>
+                            <input x-model="pt.title" class="input-premium">
+                            <label class="label-premium">Subtítulo (PT)</label>
+                            <input x-model="pt.subtitle" class="input-premium">
+                        </div>
+                    </section>
+
+                    <section class="grid md:grid-cols-2 gap-8 border-t pt-8">
+                        <div class="space-y-4">
+                            <label class="label-premium">Title (EN)</label>
+                            <input x-model="en.title" class="input-premium">
+                            <label class="label-premium">Subtitle (EN)</label>
+                            <input x-model="en.subtitle" class="input-premium">
+                        </div>
+                        <div class="space-y-4">
+                            <label class="label-premium">Título (ES)</label>
+                            <input x-model="es.title" class="input-premium">
+                            <label class="label-premium">Subtítulo (ES)</label>
+                            <input x-model="es.subtitle" class="input-premium">
+                        </div>
+                    </section>
+
+                    <section class="border-t pt-8 space-y-4">
+                        <label class="label-premium">Galeria da Região</label>
+                        <p class="text-xs text-gray-500 font-semibold">Clique no X para excluir imagens existentes.</p>
+                        <div class="grid grid-cols-4 gap-2">
+                            <template x-for="(img, i) in imagens_atuais" :key="'img-' + i">
+                                <div class="relative">
+                                    <img :src="'../dados/circuitos/' + id_regiao + '/images/' + img"
+                                        @click="coverSelecionada = img"
+                                        :class="coverSelecionada === img ? 'ring-4 ring-[#ffc107]' : ''"
+                                        class="h-20 w-full object-cover rounded-xl bg-gray-200 cursor-pointer">
+                                    <button @click="removerImagemAtual(i)"
+                                        class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-black">x</button>
+                                </div>
+                            </template>
+                        </div>
+                        <input type="file" multiple @change="upload" class="input-premium text-xs">
+                        <div class="grid grid-cols-4 gap-2">
+                            <template x-for="(f, i) in novas_imagens" :key="'new-' + i">
+                                <div class="relative">
+                                    <img :src="f.url"
+                                        @click="coverSelecionada = f.name"
+                                        :class="coverSelecionada === f.name ? 'ring-4 ring-[#ffc107]' : ''"
+                                        class="h-20 w-full object-cover rounded-xl bg-gray-200 cursor-pointer">
+                                    <button @click="removerNovaImagem(i)"
+                                        class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-black">x</button>
+                                </div>
+                            </template>
+                        </div>
+                    </section>
+
+                    <button @click="salvar()" :disabled="loading"
+                        class="w-full bg-[#0f5132] text-white py-6 rounded-3xl font-black uppercase shadow-xl">
+                        <span x-text="loading ? 'Enviando...' : '💾 Salvar Alterações da Região'"></span>
+                    </button>
+                </div>
+            </template>
+        </div>
+    </div>
+
+<script>
+function editRegiaoApp() {
+    return {
+        regioes: [],
+        carregado: false,
+        loading: false,
+        id_regiao: '',
+        imagens_atuais: [],
+        imagens_removidas: [],
+        novas_imagens: [],
+        coverSelecionada: '',
+        pt: { title: '', subtitle: '' },
+        en: { title: '', subtitle: '' },
+        es: { title: '', subtitle: '' },
+
+        async init() {
+            const params = new URLSearchParams(window.location.search);
+            const regiao = params.get('regiao');
+            const res = await fetch(apiUrl('/api/regioes'));
+            const data = await res.json();
+            this.regioes = data.regioes || [];
+            if (regiao) await this.carregarRegiao(regiao);
+        },
+
+        async carregarRegiaoRef(value) {
+            if (!value) return;
+            await this.carregarRegiao(value);
+        },
+
+        async carregarRegiao(regiao) {
+            const res = await fetch(apiUrl(`/api/regiao/${regiao}`));
+            const payload = await res.json();
+            if (!res.ok || !payload.data) {
+                alert(payload.error || 'Falha ao carregar região.');
+                return;
+            }
+            const d = payload.data;
+            this.id_regiao = regiao;
+            this.pt = { title: d.texts?.pt?.title || '', subtitle: d.texts?.pt?.subtitle || '' };
+            this.en = { title: d.texts?.en?.title || '', subtitle: d.texts?.en?.subtitle || '' };
+            this.es = { title: d.texts?.es?.title || '', subtitle: d.texts?.es?.subtitle || '' };
+            this.imagens_atuais = payload.images || [];
+            this.imagens_removidas = [];
+            this.novas_imagens = [];
+            this.coverSelecionada = (d.cover || '').split('/').pop() || '';
+            this.carregado = true;
+        },
+
+        upload(e) {
+            this.novas_imagens = Array.from(e.target.files).map(f => ({ file: f, name: f.name, url: URL.createObjectURL(f) }));
+        },
+
+        removerImagemAtual(index) {
+            const name = this.imagens_atuais[index];
+            if (name) this.imagens_removidas.push(name);
+            this.imagens_atuais.splice(index, 1);
+            if (this.coverSelecionada === name) this.coverSelecionada = '';
+        },
+
+        removerNovaImagem(index) {
+            const name = this.novas_imagens[index]?.name;
+            this.novas_imagens.splice(index, 1);
+            if (this.coverSelecionada === name) this.coverSelecionada = '';
+        },
+
+        async salvar() {
+            this.loading = true;
+            try {
+                const zip = new JSZip();
+                const payload = {
+                    modo: 'update',
+                    tipo: 'regiao',
+                    regiao: this.id_regiao,
+                    cover_file: this.coverSelecionada || '',
+                    dados: {
+                        texts: {
+                            pt: { title: this.pt.title, subtitle: this.pt.subtitle },
+                            en: { title: this.en.title, subtitle: this.en.subtitle },
+                            es: { title: this.es.title, subtitle: this.es.subtitle }
+                        },
+                        gallery_remove: this.imagens_removidas
+                    }
+                };
+                zip.file('config.json', JSON.stringify(payload));
+                this.novas_imagens.forEach(f => zip.file(f.name, f.file));
+                const blob = await zip.generateAsync({ type: 'blob' });
+                const formData = new FormData();
+                formData.append('file', blob, `update_regiao_${this.id_regiao}.zip`);
+                const res = await fetch(apiUrl('/upload'), { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.status !== 'ok') throw new Error(data.error || 'Falha ao atualizar região.');
+                alert('✅ Região atualizada com sucesso!');
+            } catch (e) {
+                alert(e.message || 'Falha ao atualizar.');
+            } finally {
+                this.loading = false;
+            }
+        }
+    }
+}
+</script>
+</body>
+</html>
