@@ -148,9 +148,28 @@ function app() {
         locais: [],
         regioes: [],
 
-        async init() {
-            await this.carregar();
-        },
+      async init() {
+    const params = new URLSearchParams(window.location.search);
+
+    const regiao = params.get('regiao');
+    const local = params.get('id'); // ✅ corrigido aqui
+
+    const res = await fetch(apiUrl('/api/locais'));
+    const data = await res.json();
+    this.locais = data.locais || [];
+
+    if (regiao && local) {
+        await this.carregarLocal(regiao, local);
+
+        // opcional: já selecionar no dropdown automaticamente
+        this.$nextTick(() => {
+            const select = document.querySelector('select');
+            if (select) {
+                select.value = `${regiao}::${local}`;
+            }
+        });
+    }
+},
 
         async carregar() {
             try {
