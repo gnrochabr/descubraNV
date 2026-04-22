@@ -69,7 +69,7 @@
                         <div class="grid grid-cols-4 gap-2">
                             <template x-for="(img, i) in imagens_atuais" :key="'img-' + i">
                                 <div class="relative">
-                                    <img :src="'../dados/circuitos/' + id_regiao + '/images/' + img"
+                                    <img :src="'/dados/circuitos/' + id_regiao + '/images/' + img"
                                         @click="coverSelecionada = img"
                                         :class="coverSelecionada === img ? 'ring-4 ring-[#ffc107]' : ''"
                                         class="h-20 w-full object-cover rounded-xl bg-gray-200 cursor-pointer">
