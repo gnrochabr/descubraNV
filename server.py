@@ -14,7 +14,7 @@ from manager import SiteManager
 # 🔧 CONFIGURAÇÃO BASE
 # =========================
 
-app = Flask(__name__, template_folder="admin", static_folder=".")
+app = Flask(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "pendentes")
@@ -27,7 +27,7 @@ processando = False
 lock = threading.Lock()
 
 # =========================
-# 🌐 HEADERS (CORS)
+# 🌐 CORS
 # =========================
 
 @app.after_request
@@ -38,16 +38,24 @@ def add_cors_headers(response):
     return response
 
 # =========================
-# 📄 ROTAS FRONTEND
+# 🌍 SITE PÚBLICO
 # =========================
 
 @app.route("/")
-def index():
-    return render_template("dashboard.html")
+def site():
+    return send_from_directory(".", "index.html")
+
+# =========================
+# 🔐 ADMIN
+# =========================
 
 @app.route("/login.html")
 def login():
     return send_from_directory(".", "login.html")
+
+@app.route("/dashboard.html")
+def dashboard():
+    return send_from_directory("admin", "dashboard.html")
 
 @app.route("/auth.js")
 def auth_js():
@@ -57,21 +65,24 @@ def auth_js():
 def user_xml():
     return send_from_directory(".", "user.xml")
 
+# =========================
+# 📁 ARQUIVOS ESTÁTICOS
+# =========================
+
 @app.route("/imagens/<path:path>")
 def imagens(path):
     return send_from_directory("imagens", path)
-
-@app.route("/layout/<path:path>")
-def layout(path):
-    return send_from_directory("layout", path)
 
 @app.route("/dados/<path:path>")
 def dados(path):
     return send_from_directory("dados", path)
 
+@app.route("/layout/<path:path>")
+def layout(path):
+    return send_from_directory("layout", path)
+
 @app.route("/<path:path>")
 def root_files(path):
-    # serve arquivos como listar_locais.html, gestao_user.html etc.
     return send_from_directory(".", path)
 
 # =========================
@@ -102,7 +113,7 @@ def parse_js_object(path):
 
     try:
         return json.loads(obj_src)
-    except json.JSONDecodeError:
+    except:
         py_src = re.sub(r'\btrue\b', 'True', obj_src)
         py_src = re.sub(r'\bfalse\b', 'False', py_src)
         py_src = re.sub(r'\bnull\b', 'None', py_src)
@@ -133,7 +144,7 @@ def parse_controller_estrutura():
         return {}
 
 # =========================
-# 📊 DADOS (LOCAIS / REGIÕES)
+# 📊 DADOS
 # =========================
 
 def list_locais():
