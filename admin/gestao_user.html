@@ -97,7 +97,7 @@
 
             async init() {
                 try {
-                    const resp = await fetch('../user.xml');
+                    const resp = await fetch('/user.xml');
                     const text = await resp.text();
                     const parser = new DOMParser();
                     const xml = parser.parseFromString(text, 'text/xml');
