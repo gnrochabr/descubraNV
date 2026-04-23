@@ -98,6 +98,11 @@ def list_regioes():
 def api_locais():
     return jsonify({"locais": list_locais()})
 
+#Página do leo
+@app.route("/ra")
+def ra():
+    return send_from_directory(".", "ra.html")
+
 
 @app.route("/api/regioes")
 def api_regioes():
