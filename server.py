@@ -3,7 +3,7 @@ import re
 import json
 import zipfile
 import shutil
-from flask import Flask, jsonify, send_from_directory, request
+from flask import Flask, jsonify, send_from_directory, request, redirect
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
@@ -101,7 +101,7 @@ def api_locais():
 #Página do leo
 @app.route("/ra")
 def ra():
-    return send_from_directory(".", "ra.html")
+    return redirect("https://mobogames.com/descubranv")
 
 
 @app.route("/api/regioes")
