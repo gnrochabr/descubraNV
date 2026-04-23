@@ -99,7 +99,7 @@ def api_locais():
     return jsonify({"locais": list_locais()})
 
 #Página do leo
-@app.route("/ra")
+@app.route("/totem")
 def ra():
     return redirect("https://mobogames.com.br/descubranv")
 
