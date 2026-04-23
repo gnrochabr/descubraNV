@@ -101,7 +101,7 @@ def api_locais():
 #Página do leo
 @app.route("/ra")
 def ra():
-    return redirect("https://mobogames.com/descubranv")
+    return redirect("https://mobogames.com.br/descubranv")
 
 
 @app.route("/api/regioes")
